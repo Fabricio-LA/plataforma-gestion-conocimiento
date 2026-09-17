@@ -1,3 +1,3 @@
 # Documentación Técnica del Sistema
-Servidor API: Express.js configurado con Node 20 LTS.
+Servidor API: FastAPI configurado con Python 3.11.
 Base de Datos: PostgreSQL desplegada con Docker Compose.
