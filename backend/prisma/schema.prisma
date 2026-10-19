@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  REVISOR
+  ANALISTA
+}
+
+enum EstadoDocumento {
+  BORRADOR
+  EN_REVISION
+  PUBLICADO
+  OBSOLETO
+}
+
+enum EstadoPropuesta {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+model Usuario {
+  id              String             @id @default(uuid())
+  nombre          String
+  email           String             @unique
+  password        String
+  rol             Rol                @default(ANALISTA)
+  activo          Boolean            @default(true)
+  creadoEn        DateTime           @default(now()) @map("creado_en")
+  actualizadoEn   DateTime           @updatedAt @map("actualizado_en")
+
+  // Relaciones
+  documentos      Documento[]        @relation("DocumentoAutor")
+  versiones       Version[]          @relation("VersionAutor")
+  propuestas      PropuestaCambio[]  @relation("PropuestaAutor")
+  revisiones      PropuestaCambio[]  @relation("PropuestaRevisor")
+
+  @@map("usuarios")
+}
+
+model Categoria {
+  id          String      @id @default(uuid())
+  nombre      String      @unique
+  descripcion String?
+  creadoEn    DateTime    @default(now()) @map("creado_en")
+  documentos  Documento[]
+
+  @@map("categorias")
+}
+
+model Etiqueta {
+  id         String             @id @default(uuid())
+  nombre     String             @unique
+  documentos DocumentoEtiqueta[]
+
+  @@map("etiquetas")
+}
+
+model Documento {
+  id              String             @id @default(uuid())
+  titulo          String
+  contenidoActual String             @db.Text @map("contenido_actual")
+  estado          EstadoDocumento    @default(BORRADOR)
+  categoriaId     String?            @map("categoria_id")
+  autorId         String             @map("autor_id")
+  creadoEn        DateTime           @default(now()) @map("creado_en")
+  actualizadoEn   DateTime           @updatedAt @map("actualizado_en")
+
+  // Relaciones
+  categoria       Categoria?         @relation(fields: [categoriaId], references: [id])
+  autor           Usuario            @relation("DocumentoAutor", fields: [autorId], references: [id])
+  versiones       Version[]
+  propuestas      PropuestaCambio[]
+  etiquetas       DocumentoEtiqueta[]
+
+  // Relaciones entre documentos (para conectar notas/conocimiento)
+  documentosRelacionados DocumentoRelacion[] @relation("OrigenRelacion")
+  relacionadoPor         DocumentoRelacion[] @relation("DestinoRelacion")
+
+  @@map("documentos")
+}
+
+model Version {
+  id            String    @id @default(uuid())
+  documentoId   String    @map("documento_id")
+  numeroVersion Int       @map("numero_version")
+  contenido     String    @db.Text
+  mensajeCambio String    @map("mensaje_cambio")
+  autorId       String    @map("autor_id")
+  creadoEn      DateTime  @default(now()) @map("creado_en")
+
+  // Relaciones
+  documento     Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  autor         Usuario   @relation("VersionAutor", fields: [autorId], references: [id])
+
+  @@unique([documentoId, numeroVersion])
+  @@map("versiones")
+}
+
+model PropuestaCambio {
+  id                 String          @id @default(uuid())
+  documentoId        String          @map("documento_id")
+  autorId            String          @map("autor_id")
+  revisorId          String?         @map("revisor_id")
+  contenidoPropuesto String          @db.Text @map("contenido_propuesto")
+  mensaje            String
+  estado             EstadoPropuesta @default(PENDIENTE)
+  comentarioRevision String?         @map("comentario_revision")
+  creadoEn           DateTime        @default(now()) @map("creado_en")
+  revisadoEn         DateTime?       @map("revisado_en")
+
+  // Relaciones
+  documento          Documento       @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  autor              Usuario         @relation("PropuestaAutor", fields: [autorId], references: [id])
+  revisor            Usuario?        @relation("PropuestaRevisor", fields: [revisorId], references: [id])
+
+  @@map("propuestas_cambio")
+}
+
+model DocumentoEtiqueta {
+  documentoId String    @map("documento_id")
+  etiquetaId  String    @map("etiqueta_id")
+
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  etiqueta    Etiqueta  @relation(fields: [etiquetaId], references: [id], onDelete: Cascade)
+
+  @@id([documentoId, etiquetaId])
+  @@map("documento_etiquetas")
+}
+
+model DocumentoRelacion {
+  origenId  String    @map("origen_id")
+  destinoId String    @map("destino_id")
+
+  origen    Documento @relation("OrigenRelacion", fields: [origenId], references: [id], onDelete: Cascade)
+  destino   Documento @relation("DestinoRelacion", fields: [destinoId], references: [id], onDelete: Cascade)
+
+  @@id([origenId, destinoId])
+  @@map("documento_relaciones")
+}
