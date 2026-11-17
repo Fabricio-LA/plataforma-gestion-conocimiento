@@ -111,6 +111,7 @@ model PropuestaCambio {
   revisorId          String?         @map("revisor_id")
   contenidoPropuesto String          @db.Text @map("contenido_propuesto")
   mensaje            String
+  versionBase        Int?            @map("version_base")
   estado             EstadoPropuesta @default(PENDIENTE)
   comentarioRevision String?         @map("comentario_revision")
   creadoEn           DateTime        @default(now()) @map("creado_en")

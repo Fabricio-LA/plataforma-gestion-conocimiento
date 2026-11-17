@@ -30,11 +30,8 @@ export async function register(req: Request, res: Response): Promise<void> {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Asignar rol (validar contra enum Rol o por defecto ANALISTA)
-    let rolAsignado: Rol = Rol.ANALISTA;
-    if (rol && Object.values(Rol).includes(rol)) {
-      rolAsignado = rol;
-    }
+    // Todo registro público asigna estrictamente el rol ANALISTA
+    const rolAsignado: Rol = Rol.ANALISTA;
 
     const nuevoUsuario = await prisma.usuario.create({
       data: {

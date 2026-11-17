@@ -61,6 +61,7 @@ export interface PropuestaCambio {
   revisor?: Usuario;
   contenidoPropuesto: string;
   mensaje: string;
+  versionBase?: number | null;
   estado: EstadoPropuesta;
   comentarioRevision?: string;
   creadoEn: string;

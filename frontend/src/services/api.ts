@@ -82,7 +82,7 @@ export const documentService = {
       body: JSON.stringify(data),
     }),
 
-  actualizar: (id: string, data: { titulo?: string; contenido?: string; mensajeCambio?: string; estado?: string }) =>
+  actualizar: (id: string, data: { titulo?: string; contenido?: string; mensajeCambio?: string; estado?: string; versionEsperada?: number }) =>
     apiRequest<{ message: string; documento: Documento; version: VersionDocumento }>(`/documentos/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -102,10 +102,13 @@ export const documentService = {
       diferencias: Array<{ valor: string; agregado: boolean; eliminado: boolean; lineas: number }>;
     }>(`/documentos/${id}/diff?v1=${v1}&v2=${v2}`),
 
-  restaurarVersion: (id: string, versionId: string) =>
+  restaurarVersion: (id: string, versionId: string, versionEsperada?: number) =>
     apiRequest<{ message: string; documento: Documento; version: VersionDocumento }>(
       `/documentos/${id}/restaurar/${versionId}`,
-      { method: "POST" }
+      {
+        method: "POST",
+        body: versionEsperada ? JSON.stringify({ versionEsperada }) : undefined,
+      }
     ),
 };
 
@@ -119,7 +122,7 @@ export const proposalService = {
     return apiRequest<{ total: number; propuestas: PropuestaCambio[] }>(`/propuestas${query}`);
   },
 
-  crear: (data: { documentoId: string; contenidoPropuesto: string; mensaje: string }) =>
+  crear: (data: { documentoId: string; contenidoPropuesto: string; mensaje: string; versionBase?: number }) =>
     apiRequest<{ message: string; propuesta: PropuestaCambio }>("/propuestas", {
       method: "POST",
       body: JSON.stringify(data),

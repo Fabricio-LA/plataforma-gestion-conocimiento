@@ -6,7 +6,7 @@ import { EstadoPropuesta, Prisma } from "@prisma/client";
 // 1. Crear propuesta de cambio (Analista / Usuario)
 export async function crearPropuesta(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { documentoId, contenidoPropuesto, mensaje } = req.body;
+    const { documentoId, contenidoPropuesto, mensaje, versionBase } = req.body;
     const autorId = req.user!.id;
 
     if (!documentoId || !contenidoPropuesto || !mensaje) {
@@ -18,6 +18,12 @@ export async function crearPropuesta(req: AuthRequest, res: Response): Promise<v
 
     const documento = await prisma.documento.findUnique({
       where: { id: String(documentoId) },
+      include: {
+        versiones: {
+          orderBy: { numeroVersion: "desc" },
+          take: 1,
+        },
+      },
     });
 
     if (!documento) {
@@ -25,12 +31,18 @@ export async function crearPropuesta(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    // Si no se envía versionBase explícita, se enlaza a la versión vigente actual
+    const versionBaseFinal = versionBase !== undefined
+      ? Number(versionBase)
+      : (documento.versiones[0]?.numeroVersion || 1);
+
     const propuesta = await prisma.propuestaCambio.create({
       data: {
         documentoId: String(documentoId),
         autorId,
         contenidoPropuesto,
         mensaje: String(mensaje).trim(),
+        versionBase: versionBaseFinal,
         estado: EstadoPropuesta.PENDIENTE,
       },
       include: {
@@ -99,35 +111,39 @@ export async function aprobarPropuesta(req: AuthRequest, res: Response): Promise
     const { comentarioRevision } = req.body;
     const revisorId = req.user!.id;
 
-    const propuesta = await prisma.propuestaCambio.findUnique({
-      where: { id },
-      include: {
-        documento: {
-          include: {
-            versiones: {
-              orderBy: { numeroVersion: "desc" },
-              take: 1,
+    // Transacción atómica: verificar estado, comprobar versionBase y fusionar
+    const resultado = await prisma.$transaction(async (tx) => {
+      const propActual = await tx.propuestaCambio.findUnique({
+        where: { id },
+        include: {
+          documento: {
+            include: {
+              versiones: {
+                orderBy: { numeroVersion: "desc" },
+                take: 1,
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!propuesta) {
-      res.status(404).json({ message: "Propuesta no encontrada" });
-      return;
-    }
+      if (!propActual) {
+        throw new Error("NOT_FOUND");
+      }
 
-    if (propuesta.estado !== EstadoPropuesta.PENDIENTE) {
-      res.status(400).json({ message: `La propuesta ya fue evaluada (Estado: ${propuesta.estado})` });
-      return;
-    }
+      if (propActual.estado !== EstadoPropuesta.PENDIENTE) {
+        throw new Error(`ALREADY_EVALUATED:${propActual.estado}`);
+      }
 
-    const ultimaVersion = propuesta.documento.versiones[0]?.numeroVersion || 1;
-    const nuevoNumeroVersion = ultimaVersion + 1;
+      const ultimaVersionActual = propActual.documento.versiones[0]?.numeroVersion || 1;
 
-    // Transacción: aprobar propuesta, actualizar documento y crear versión oficial
-    const resultado = await prisma.$transaction(async (tx) => {
+      // Validación de versión base y concurrencia: si difiere de la versión actual, conflicto 409
+      if (propActual.versionBase !== null && propActual.versionBase !== ultimaVersionActual) {
+        throw new Error(`CONFLICT_VERSION:${propActual.versionBase}:${ultimaVersionActual}`);
+      }
+
+      const nuevoNumeroVersion = ultimaVersionActual + 1;
+
       // 1. Actualizar propuesta a APROBADA
       const propAprobada = await tx.propuestaCambio.update({
         where: { id },
@@ -141,20 +157,20 @@ export async function aprobarPropuesta(req: AuthRequest, res: Response): Promise
 
       // 2. Actualizar el documento oficial con el contenido aprobado
       const docActualizado = await tx.documento.update({
-        where: { id: propuesta.documentoId },
+        where: { id: propActual.documentoId },
         data: {
-          contenidoActual: propuesta.contenidoPropuesto,
+          contenidoActual: propActual.contenidoPropuesto,
         },
       });
 
       // 3. Crear nueva versión oficial en el historial
       const nuevaVersion = await tx.version.create({
         data: {
-          documentoId: propuesta.documentoId,
+          documentoId: propActual.documentoId,
           numeroVersion: nuevoNumeroVersion,
-          contenido: propuesta.contenidoPropuesto,
-          mensajeCambio: `Fusión de propuesta de cambio aprobada: ${propuesta.mensaje}`,
-          autorId: propuesta.autorId,
+          contenido: propActual.contenidoPropuesto,
+          mensajeCambio: `Fusión de propuesta de cambio aprobada: ${propActual.mensaje}`,
+          autorId: propActual.autorId,
         },
       });
 
@@ -168,6 +184,27 @@ export async function aprobarPropuesta(req: AuthRequest, res: Response): Promise
       version: resultado.nuevaVersion,
     });
   } catch (error: any) {
+    if (error.message?.startsWith("CONFLICT_VERSION")) {
+      const [, base, actual] = error.message.split(":");
+      res.status(409).json({
+        message: "Conflicto: la propuesta quedó desactualizada porque el documento fue modificado con una versión posterior",
+        versionBase: Number(base),
+        versionActual: Number(actual),
+      });
+      return;
+    }
+
+    if (error.message === "NOT_FOUND") {
+      res.status(404).json({ message: "Propuesta no encontrada" });
+      return;
+    }
+
+    if (error.message?.startsWith("ALREADY_EVALUATED")) {
+      const [, estado] = error.message.split(":");
+      res.status(400).json({ message: `La propuesta ya fue evaluada (Estado: ${estado})` });
+      return;
+    }
+
     console.error("Error al aprobar propuesta:", error);
     res.status(500).json({ message: "Error al aprobar propuesta", error: error.message });
   }

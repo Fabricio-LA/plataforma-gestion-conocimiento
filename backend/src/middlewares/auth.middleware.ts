@@ -50,7 +50,7 @@ export async function authenticateToken(
 
     next();
   } catch (error) {
-    res.status(403).json({ message: "Token inválido o expirado" });
+    res.status(401).json({ message: "Token inválido o expirado" });
     return;
   }
 }

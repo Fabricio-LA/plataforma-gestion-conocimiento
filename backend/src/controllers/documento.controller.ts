@@ -136,13 +136,19 @@ export async function crearDocumento(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    // Regla de permisos: un ANALISTA solo puede crear documentos en estado BORRADOR
+    let estadoFinal = (estado as EstadoDocumento) || EstadoDocumento.BORRADOR;
+    if (req.user!.rol === "ANALISTA") {
+      estadoFinal = EstadoDocumento.BORRADOR;
+    }
+
     const resultado = await prisma.$transaction(async (tx) => {
       // Crear el documento
       const nuevoDoc = await tx.documento.create({
         data: {
           titulo: String(titulo).trim(),
           contenidoActual: contenido,
-          estado: (estado as EstadoDocumento) || EstadoDocumento.BORRADOR,
+          estado: estadoFinal,
           categoriaId: categoriaId ? String(categoriaId) : null,
           autorId,
         },
@@ -206,7 +212,7 @@ export async function crearDocumento(req: AuthRequest, res: Response): Promise<v
 export async function actualizarDocumento(req: AuthRequest, res: Response): Promise<void> {
   try {
     const id = String(req.params.id);
-    const { titulo, contenido, categoriaId, estado, mensajeCambio } = req.body;
+    const { titulo, contenido, categoriaId, estado, mensajeCambio, versionEsperada } = req.body;
     const autorId = req.user!.id;
 
     const docExistente = await prisma.documento.findUnique({
@@ -225,6 +231,40 @@ export async function actualizarDocumento(req: AuthRequest, res: Response): Prom
     }
 
     const ultimaVersion = docExistente.versiones[0]?.numeroVersion || 1;
+
+    // Validación de concurrencia: si el cliente envía versionEsperada y difiere de la actual
+    if (versionEsperada !== undefined && Number(versionEsperada) !== ultimaVersion) {
+      res.status(409).json({
+        message: "Conflicto de concurrencia: el documento fue modificado recientemente",
+        versionActual: ultimaVersion,
+        versionEsperada: Number(versionEsperada),
+      });
+      return;
+    }
+
+    // Regla 1: Borradores ajenos (solo autor o ADMIN pueden editar)
+    if (docExistente.estado === EstadoDocumento.BORRADOR) {
+      if (docExistente.autorId !== req.user!.id && req.user!.rol !== "ADMIN") {
+        res.status(403).json({ message: "Acceso denegado: no puedes editar borradores de otro usuario" });
+        return;
+      }
+    }
+
+    // Regla 2: Documentos publicados no pueden ser editados directamente por ANALISTA (requieren propuesta BPMN)
+    if (docExistente.estado === EstadoDocumento.PUBLICADO && req.user!.rol === "ANALISTA") {
+      res.status(403).json({
+        message: "Los documentos publicados no pueden modificarse directamente por analistas; deben tramitarse mediante una propuesta de cambio",
+      });
+      return;
+    }
+
+    // Regla 3: Cambiar estado a PUBLICADO requiere REVISOR o ADMIN
+    if (estado === EstadoDocumento.PUBLICADO && req.user!.rol === "ANALISTA") {
+      res.status(403).json({
+        message: "Acceso denegado: solo un Revisor o Administrador puede publicar documentos",
+      });
+      return;
+    }
     const nuevoNumeroVersion = ultimaVersion + 1;
     const nuevoContenido = contenido !== undefined ? contenido : docExistente.contenidoActual;
 
@@ -399,6 +439,18 @@ export async function restaurarVersion(req: AuthRequest, res: Response): Promise
     }
 
     const ultimaVersion = doc.versiones[0]?.numeroVersion || 1;
+    const { versionEsperada } = req.body || {};
+
+    // Validación de concurrencia: si se especifica la versión esperada y cambió en el ínterin
+    if (versionEsperada !== undefined && Number(versionEsperada) !== ultimaVersion) {
+      res.status(409).json({
+        message: "Conflicto de concurrencia: el documento fue modificado recientemente",
+        versionActual: ultimaVersion,
+        versionEsperada: Number(versionEsperada),
+      });
+      return;
+    }
+
     const nuevoNumeroVersion = ultimaVersion + 1;
 
     const resultado = await prisma.$transaction(async (tx) => {
