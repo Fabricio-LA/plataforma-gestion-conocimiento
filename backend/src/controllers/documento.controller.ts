@@ -168,11 +168,17 @@ export async function crearDocumento(req: AuthRequest, res: Response): Promise<v
       // Asociar etiquetas si se proporcionaron
       if (Array.isArray(etiquetas) && etiquetas.length > 0) {
         for (const nombreEtiqueta of etiquetas) {
-          const etiqueta = await tx.etiqueta.upsert({
-            where: { nombre: String(nombreEtiqueta).trim().toLowerCase() },
-            create: { nombre: String(nombreEtiqueta).trim().toLowerCase() },
-            update: {},
+          const cleanName = String(nombreEtiqueta).trim();
+          if (!cleanName) continue;
+          let etiqueta = await tx.etiqueta.findFirst({
+            where: { nombre: { equals: cleanName, mode: "insensitive" } },
           });
+
+          if (!etiqueta) {
+            etiqueta = await tx.etiqueta.create({
+              data: { nombre: cleanName },
+            });
+          }
 
           await tx.documentoEtiqueta.create({
             data: {

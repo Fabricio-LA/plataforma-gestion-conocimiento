@@ -26,7 +26,7 @@ export function CreateDocument({ fail }: Props) {
     const data = new FormData(event.currentTarget);
     const titulo = String(data.get('titulo')).trim();
     const contenido = String(data.get('contenido'));
-    const etiquetas = [...new Set(String(data.get('etiquetas')).split(',').map(x => x.trim().toLowerCase()).filter(Boolean))];
+    const etiquetas = [...new Set(String(data.get('etiquetas')).split(',').map(x => x.trim()).filter(Boolean))];
     etiquetas.push(...data.getAll('etiquetaSeleccionada').map(String).filter(x => !etiquetas.includes(x)));
     const documentosRelacionadosIds = data.getAll('relacionados').map(String);
     if (!titulo || !contenido.trim()) { fail(new Error('Completa el título y el contenido.')); return; }
@@ -193,9 +193,11 @@ export function ReviewInbox({ fail, user }: Props & { user: Usuario }) {
   }
   const stale = selected && (selected.versionBase == null || selected.versionBase !== version);
   return <section className="status-card"><h1>Revisión de propuestas</h1>
-    <label>Estado<select value={filter} onChange={e => setFilter(e.target.value)}><option value="">Todos</option>{['PENDIENTE', 'APROBADA', 'RECHAZADA'].map(estado => <option key={estado} value={estado}>{estado}</option>)}</select></label>
-    <label>Documento<select value={documentFilter} onChange={e => setDocumentFilter(e.target.value)}><option value="">Todos</option>{documents.map(documento => <option key={documento.id} value={documento.id}>{documento.titulo}</option>)}</select></label>
-    <button className="secondary" disabled={busy || loading} onClick={() => void reload()}>Actualizar bandeja</button>
+    <div className="filter-bar">
+      <label>Estado<select value={filter} onChange={e => setFilter(e.target.value)}><option value="">Todos</option>{['PENDIENTE', 'APROBADA', 'RECHAZADA'].map(estado => <option key={estado} value={estado}>{estado}</option>)}</select></label>
+      <label>Documento<select value={documentFilter} onChange={e => setDocumentFilter(e.target.value)}><option value="">Todos</option>{documents.map(documento => <option key={documento.id} value={documento.id}>{documento.titulo}</option>)}</select></label>
+      <button className="secondary filter-button" disabled={busy || loading} onClick={() => void reload()}>Actualizar bandeja</button>
+    </div>
     {loading && <p role="status">Cargando propuestas…</p>}
     {busy && !selected && <p role="status">Cargando comparación o procesando decisión…</p>}
     {!loading && items.length === 0 && <p>No hay propuestas para esta consulta.</p>}

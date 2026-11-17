@@ -72,8 +72,8 @@ export async function crearEtiqueta(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const existente = await prisma.etiqueta.findUnique({
-      where: { nombre: nombre.trim().toLowerCase() },
+    const existente = await prisma.etiqueta.findFirst({
+      where: { nombre: { equals: nombre.trim(), mode: "insensitive" } },
     });
 
     if (existente) {
@@ -82,7 +82,7 @@ export async function crearEtiqueta(req: Request, res: Response): Promise<void> 
     }
 
     const nueva = await prisma.etiqueta.create({
-      data: { nombre: nombre.trim().toLowerCase() },
+      data: { nombre: nombre.trim() },
     });
 
     res.status(201).json({ message: "Etiqueta creada", etiqueta: nueva });
