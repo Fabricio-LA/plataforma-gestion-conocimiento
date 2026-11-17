@@ -84,7 +84,7 @@ export default function Demo() {
     <header className="header"><a className="brand" href="#/buscar"><span className="brand-icon">c.</span> conocimiento/</a>
       {user && <div className="session"><span>{user.nombre} · {user.rol}</span><button onClick={logout}>Cerrar sesión</button></div>}</header>
     <main className="demo-main"><Health />
-      {user && <nav className="workflow-nav"><a href="#/buscar">Buscar</a><a href="#/crear">Crear documento</a><a href="#/catalogos">Categor?as y etiquetas</a><a href="#/revision">Propuestas</a></nav>}
+      {user && <nav className="workflow-nav"><a href="#/buscar">Buscar</a><a href="#/crear">Crear documento</a><a href="#/catalogos">Categorías y etiquetas</a><a href="#/revision">Propuestas</a></nav>}
       {!ready ? <p role="status">Recuperando sesión…</p> : !user ? <section className="status-card login-card">
         <span className="eyebrow">ESPACIO DE CONOCIMIENTO</span><h1>Inicio de sesión</h1>
         {detail && <p>Inicia sesión para abrir este documento.</p>}
