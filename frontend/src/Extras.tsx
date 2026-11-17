@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { apiRequest, authService, categoryService, documentService } from './services/api';
 import type { Documento, Usuario, VersionDocumento, Etiqueta } from './types';
 
