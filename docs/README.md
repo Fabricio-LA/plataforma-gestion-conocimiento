@@ -2,6 +2,21 @@
 
 Verificación del 10 de noviembre de 2026. La API es Node.js con Express, TypeScript y Prisma sobre PostgreSQL 16. El [README del backend](../backend/README.md) contiene los comandos y el catálogo de rutas. Las vistas del [README del frontend](../frontend/README.md) describen el alcance previsto.
 
+Actualización local del 12 de noviembre de 2026 en `feature/api-entorno-local`.
+Se preparó `20261112000000_init` a partir del esquema existente. La migración se
+aplicó en `pgc_migration_test_20261112`, una base nueva separada de
+`gestion_conocimiento_db`, en el mismo PostgreSQL 16 de Docker publicado en 55432.
+Se verificaron cero tablas antes de aplicar, despliegue repetible sin migraciones
+pendientes y coincidencia exacta con el esquema Prisma mediante migrate diff.
+La instalación con npm ci desde caché, la generación del cliente y la compilación
+pasaron. La API compilada, configurada temporalmente en 4001, respondió HTTP 200
+en salud y categorías. Categorías devolvió un arreglo vacío tras consultar la base
+de prueba. Los conteos de usuarios, documentos y categorías de la base actual
+se mantuvieron en cero. Se conserva la base de prueba para inspección.
+El procedimiento vigente de instalación, variables, migraciones y arranque está
+en el README del backend, incluida la adopción de una base creada con db push.
+Los apartados siguientes conservan el registro de la auditoría inicial.
+
 ## Estado de Git y flujo
 
 - `git ls-remote` confirmó en `personal` (Crls94/PGC) que `main` y `develop` apuntan a `6144620` y `feature/frontend-bootstrap` a `7db0813`. El bootstrap contiene un único commit sobre `develop` y su diff se limita al frontend y su configuración de Git.

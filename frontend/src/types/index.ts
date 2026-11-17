@@ -46,7 +46,8 @@ export interface Documento {
   categoria?: Categoria;
   autorId: string;
   autor?: Usuario;
-  etiquetas?: Etiqueta[];
+  etiquetas?: Array<Etiqueta | string>;
+  relaciones?: Array<{ id: string; titulo: string; estado: EstadoDocumento }>;
   versiones?: VersionDocumento[];
   creadoEn: string;
   actualizadoEn: string;
@@ -60,8 +61,9 @@ export interface PropuestaCambio {
   revisorId?: string;
   revisor?: Usuario;
   contenidoPropuesto: string;
+  versionBase: number | null;
+  documento?: { id: string; titulo: string; contenidoActual: string };
   mensaje: string;
-  versionBase?: number | null;
   estado: EstadoPropuesta;
   comentarioRevision?: string;
   creadoEn: string;

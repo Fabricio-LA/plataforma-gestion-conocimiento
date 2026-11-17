@@ -10,6 +10,10 @@ import {
 
 const API_BASE_URL = import.meta.env?.VITE_API_URL || "http://localhost:4000/api";
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -32,7 +36,7 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || `Error HTTP ${response.status}`);
+    throw new ApiError(errorBody.message || `Error HTTP ${response.status}`, response.status);
   }
 
   return response.json();
